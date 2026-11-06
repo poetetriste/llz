@@ -1,0 +1,27 @@
+# Релизный снапшот: в репозиторий входит только продукт и верификация.
+# Всё остальное (probe-скрипты, корпуса, модели, батники прогонов) — локальный мусор экспериментов.
+*
+!.gitignore
+!LICENSE
+!README.md
+!RELEASE_NOTES.md
+!REPORT.md
+!pyproject.toml
+!benchmark.py
+!fetch_corpus.py
+!llz/
+!llz/**
+!test_llz.py
+!test_server.py
+!verify_corpora.py
+!verify_big.py
+!finetune_domain.py
+!cross_test/
+!cross_test/**
+!letter_original.txt
+!onegin.txt
+
+# Исключения внутри разрешённых папок
+**/__pycache__/
+*.pyc
+cross_test/*.decoded.txt
