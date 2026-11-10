@@ -9,10 +9,12 @@ llz — lossless-сжатие текста языковой моделью + а�
     ...
 CLI:  python -m llz.cli encode book.txt   (или entry point `llz`)
 """
+
 from .cli import (
     DEFAULT_MODEL,
     MAGIC,
     MAGIC2,
+    MAGIC3,
     decode,
     encode,
     encode_batched,
@@ -22,9 +24,19 @@ from .cli import (
     unpack,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
-    "DEFAULT_MODEL", "MAGIC", "MAGIC2", "decode", "encode", "encode_batched",
-    "get_codec", "pack", "profile_mismatch", "unpack", "__version__",
+    "DEFAULT_MODEL",
+    "MAGIC",
+    "MAGIC2",
+    "MAGIC3",
+    "decode",
+    "encode",
+    "encode_batched",
+    "get_codec",
+    "pack",
+    "profile_mismatch",
+    "unpack",
+    "__version__",
 ]

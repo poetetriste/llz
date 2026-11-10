@@ -7,7 +7,10 @@ verify_corpora.py — честный полный круг encode->decode на �
 Побайтовое сравнение результата с оригиналом. Без этого шага
 любые цифры сжатия — теория, а не факт.
 """
-import sys, time, zlib
+
+import sys
+import time
+import zlib
 import llz
 
 src = sys.argv[1]
@@ -39,6 +42,8 @@ crc_ok = (zlib.crc32(back) & 0xFFFFFFFF) == (zlib.crc32(raw) & 0xFFFFFFFF)
 ratio = len(raw) / max(1, len(blob))
 print(f"\n=== {src} (срез {len(raw)} из {len(raw_full)} байт) ===")
 print(f"токенов: {n}, сжато: {len(blob)} байт ({ratio:.2f} : 1)")
-print(f"encode {t_enc:.0f} с ({n/max(1,t_enc):.1f} ток/с), decode {t_dec:.0f} с")
-print(f"ПОБАЙТОВОЕ СОВПАДЕНИЕ: {'ДА' if ok else 'НЕТ!!!'}, CRC32: {'OK' if crc_ok else 'НЕ СОШЁЛСЯ'}")
+print(f"encode {t_enc:.0f} с ({n / max(1, t_enc):.1f} ток/с), decode {t_dec:.0f} с")
+print(
+    f"ПОБАЙТОВОЕ СОВПАДЕНИЕ: {'ДА' if ok else 'НЕТ!!!'}, CRC32: {'OK' if crc_ok else 'НЕ СОШЁЛСЯ'}"
+)
 sys.exit(0 if ok else 1)

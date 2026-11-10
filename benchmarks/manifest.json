@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "wikipedia_corpus": {
+    "path": "corpus.txt",
+    "bytes": 1251867,
+    "sha256": "87c32bcab75083d2191c6592218748c7cff492e98cf5ce336ea7669088c6a5dc",
+    "retrieved_utc_date": "2026-11-05",
+    "language": "ru",
+    "articles": [
+      "История России",
+      "Вторая мировая война",
+      "Москва",
+      "Русский язык",
+      "Сжатие данных",
+      "Эволюция",
+      "Солнечная система",
+      "Искусственный интеллект"
+    ],
+    "license": "CC BY-SA 4.0; see WIKIPEDIA-NOTICE.md"
+  },
+  "main_llz2_result": {
+    "path": "corpus-rugpt3large-fp16-compile.llz2",
+    "bytes": 77654,
+    "sha256": "32b5b5041b9cce3895e421a41c65f2f98ad639df99c5a05f88bccd8622f44c44",
+    "payload_bytes": 77590,
+    "payload_ratio": 16.1343858744684,
+    "container_ratio": 16.1210884178536,
+    "tokens": 155823,
+    "model": "sberbank-ai/rugpt3large_based_on_gpt2",
+    "scale_bits": 28,
+    "profile": "fp16, CUDA, torch.compile",
+    "crc32": "1ba4c55c",
+    "note": "The original local file had an incorrect scale_bits=16 header (SHA-256 9952a5e53a402c0493cf89f6398f68cdb6fd229a59148052a532d7c3be014c4b). This copy changes only that uint32 field to the actual encoder scale_bits=28; its 77590-byte payload is unchanged."
+  },
+  "self_generated_degenerate": {
+    "path": "self_generated_degenerate.txt",
+    "bytes": 39277,
+    "sha256": "adc66198463e24069c01406522ef072fe41c3735d9a7af6eb9dfe7e6dc30eed2",
+    "tokens": 4767,
+    "model": "sberbank-ai/rugpt3small_based_on_gpt2",
+    "generation": "temperature=0.8, top_p=0.9; generation collapsed into a repeated sentence",
+    "entropy_estimate": {
+      "bits": 920.7653650657554,
+      "ratio": 341.25523387552767,
+      "round_trip": false
+    },
+    "measured_arithmetic_payload": {
+      "bytes": 147,
+      "ratio": 267.1904761904762,
+      "round_trip": true,
+      "byte_exact": true,
+      "crc32": "ok",
+      "profile": "fp16, CUDA, torch.compile, scale=2^28"
+    },
+    "llz3_container": {
+      "path": "self_generated_degenerate.llz3",
+      "bytes": 324,
+      "sha256": "57672c33e2113434e3a267af32466d13fd151670e6044a1f9afff709836acd63",
+      "ratio": 121.2253086419753,
+      "model_revision": "a9307e696cd3c5b7f953ff4cb19d76a4d81821d5",
+      "crc32": "b5a506c5",
+      "byte_exact": true
+    }
+  }
+}

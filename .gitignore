@@ -6,7 +6,11 @@
 !README.md
 !RELEASE_NOTES.md
 !REPORT.md
+!HABR.md
+!TG_POST.md
+!AGENTS.md
 !pyproject.toml
+!requirements-portable.txt
 !benchmark.py
 !fetch_corpus.py
 !llz/
@@ -16,6 +20,10 @@
 !verify_corpora.py
 !verify_big.py
 !finetune_domain.py
+!tests/
+!tests/**
+!benchmarks/
+!benchmarks/**
 !cross_test/
 !cross_test/**
 !letter_original.txt
@@ -25,3 +33,6 @@
 **/__pycache__/
 *.pyc
 cross_test/*.decoded.txt
+*.pkl
+*.tmp
+*.decoded.txt

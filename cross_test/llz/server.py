@@ -17,22 +17,59 @@ llz_server.py — HTTP-сервис кодека llz (stdlib only, без вне
 Ограничения (честно): вход /encode должен быть валидным UTF-8 текстом.
 Бинарные данные пока не поддерживаем (токенизатор текстовый).
 """
-import argparse, json, threading, time, zlib
+
+import argparse
+import html
+import json
+import os
+import threading
+import time
+import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import cli as llz
+from .errors import ContainerFormatError
 
 MODEL = llz.DEFAULT_MODEL
+REVISION = None
+MAX_BODY_BYTES = int(os.environ.get("LLZ_MAX_BODY_BYTES", str(16 * 1024 * 1024)))
+MAX_DECODE_TOKENS = int(os.environ.get("LLZ_MAX_DECODE_TOKENS", "2000000"))
 _lock = threading.Lock()  # одна модель — один инференс за раз
 
 BENCH_ROWS = [
     # (корпус, размер, llz, xz/gzip, bz2, примечание) — только проверенные кругом цифры
-    ("Русская Википедия", "110 КБ", "7 256 Б (15,16×)", "gzip 3,82×", "—", "полный круг encode→decode, CRC32 OK"),
-    ("Русская Википедия", "5 КБ", "320 Б (15,62×)", "—", "—", "полный круг, CRC32 OK"),
-    ("Письмо (рус.)", "1 109 Б", "141 Б (7,87×)", "gzip ~3×", "—", "полный круг, CRC32 OK"),
-    ("«Евгений Онегин»", "12 КБ", "3,38×", "—", "—", "полный круг; стихи — высокая энтропия"),
-    ("enwik8 (англ., «чужая» модель)", "2 КБ", "4,13×", "—", "—", "полный круг; rugpt3 на английском слабее"),
-    ("Самосгенерированный текст", "39 КБ", "до 341×", "—", "53,6× (brotli)", "оценка по кривой: потолок на тексте самой модели"),
+    (
+        "Русская Википедия",
+        "1 251 867 Б",
+        "77 590 Б payload (16,13×)",
+        "xz 5,21×",
+        "bz2 5,88×",
+        "полный круг, CRC32 OK",
+    ),
+    (
+        "Русская Википедия",
+        "110 КБ",
+        "6 134 Б (17,93×)",
+        "xz 4,39×",
+        "bz2 5,20×",
+        "rugpt3large; полный круг",
+    ),
+    (
+        "Письмо (рус.)",
+        "1 109 Б",
+        "141 Б payload (7,87×)",
+        "—",
+        "—",
+        "rugpt3small; полный круг",
+    ),
+    (
+        "Самосгенерированный зацикленный текст",
+        "39 277 Б",
+        "147 Б payload (267,19×)",
+        "xz 39,59×",
+        "bz2 40,87×",
+        "полный круг; энтропийная оценка 341,26×",
+    ),
 ]
 
 PAGE = """<!DOCTYPE html>
@@ -99,20 +136,46 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/healthz":
-            self._send(200, json.dumps({"status": "ok", "model": MODEL}),
-                       "application/json")
+            self._send(
+                200,
+                json.dumps({"status": "ok", "model": MODEL, "revision": REVISION}),
+                "application/json",
+            )
         elif self.path == "/":
             rows = "\n".join(
-                f"<tr><td>{c}</td><td>{s}</td><td>{l}</td><td>{x}</td><td>{b}</td><td>{n}</td></tr>"
-                for c, s, l, x, b, n in BENCH_ROWS)
-            self._send(200, PAGE.replace("__MODEL__", MODEL).replace("__ROWS__", rows),
-                       "text/html; charset=utf-8")
+                f"<tr><td>{html.escape(corpus)}</td><td>{html.escape(size)}</td>"
+                f"<td>{html.escape(llz_result)}</td><td>{html.escape(classic)}</td>"
+                f"<td>{html.escape(other)}</td><td>{html.escape(note)}</td></tr>"
+                for corpus, size, llz_result, classic, other, note in BENCH_ROWS
+            )
+            self._send(
+                200,
+                PAGE.replace("__MODEL__", html.escape(MODEL)).replace("__ROWS__", rows),
+                "text/html; charset=utf-8",
+            )
         else:
             self._send(404, "not found")
 
     def do_POST(self):
-        n = int(self.headers.get("Content-Length", 0))
+        length_header = self.headers.get("Content-Length")
+        if length_header is None:
+            self._send(411, "Content-Length required")
+            return
+        try:
+            n = int(length_header)
+        except ValueError:
+            self._send(400, "invalid Content-Length")
+            return
+        if n < 0:
+            self._send(400, "invalid Content-Length")
+            return
+        if n > MAX_BODY_BYTES:
+            self._send(413, "request body too large")
+            return
         raw = self.rfile.read(n)
+        if len(raw) != n:
+            self._send(400, "truncated request body")
+            return
         if self.path == "/encode":
             try:
                 text = raw.decode("utf-8")
@@ -121,34 +184,61 @@ class Handler(BaseHTTPRequestHandler):
                 return
             t0 = time.time()
             with _lock:
-                payload, ntok = llz.encode(text, MODEL, 28)
-                blob = llz.pack(payload, ntok, zlib.crc32(raw) & 0xFFFFFFFF, MODEL, 28)
-            self._send(200, blob, "application/octet-stream", {
-                "X-Orig-Bytes": str(len(raw)),
-                "X-Comp-Bytes": str(len(blob)),
-                "X-Ratio": f"{len(raw)/max(1,len(blob)):.2f}",
-                "X-Tokens": str(ntok),
-                "X-CRC32": f"{zlib.crc32(raw) & 0xFFFFFFFF:08x}",
-                "X-Encode-Sec": f"{time.time()-t0:.1f}",
-            })
+                payload, ntok = llz.encode(text, MODEL, 28, REVISION)
+                block = llz.get_codec(MODEL, REVISION)[1].config.n_positions
+                blob = llz.pack(
+                    payload,
+                    ntok,
+                    zlib.crc32(raw) & 0xFFFFFFFF,
+                    MODEL,
+                    28,
+                    block=block,
+                    model_revision=REVISION,
+                )
+            self._send(
+                200,
+                blob,
+                "application/octet-stream",
+                {
+                    "X-Orig-Bytes": str(len(raw)),
+                    "X-Comp-Bytes": str(len(blob)),
+                    "X-Ratio": f"{len(raw) / max(1, len(blob)):.2f}",
+                    "X-Tokens": str(ntok),
+                    "X-CRC32": f"{zlib.crc32(raw) & 0xFFFFFFFF:08x}",
+                    "X-Encode-Sec": f"{time.time() - t0:.1f}",
+                },
+            )
         elif self.path == "/decode":
             try:
                 mid, scale, crc, ntok, payload, prof = llz.unpack(raw)
-            except (AssertionError, Exception) as e:
-                self._send(400, f"не LLZ1-контейнер: {e}")
+            except ContainerFormatError:
+                self._send(400, "malformed LLZ container")
                 return
             if mid != MODEL:
                 self._send(409, f"контейнер под модель {mid}, у сервера {MODEL}")
                 return
+            if ntok > MAX_DECODE_TOKENS:
+                self._send(413, "archive token count exceeds server limit")
+                return
             t0 = time.time()
             with _lock:
-                text = llz.decode(payload, ntok, mid, scale)
+                text = llz.decode(payload, ntok, mid, scale, prof.get("model_revision"))
             back = text.encode("utf-8")
             ok = (zlib.crc32(back) & 0xFFFFFFFF) == crc
-            self._send(200, back, "text/plain; charset=utf-8", {
-                "X-CRC32": "ok" if ok else "MISMATCH",
-                "X-Decode-Sec": f"{time.time()-t0:.1f}",
-            })
+            if not ok:
+                self._send(
+                    422, "decoded CRC32 mismatch", headers={"X-CRC32": "MISMATCH"}
+                )
+                return
+            self._send(
+                200,
+                back,
+                "text/plain; charset=utf-8",
+                {
+                    "X-CRC32": "ok" if ok else "MISMATCH",
+                    "X-Decode-Sec": f"{time.time() - t0:.1f}",
+                },
+            )
         else:
             self._send(404, "not found")
 
@@ -157,14 +247,16 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    global MODEL
+    global MODEL, REVISION
     ap = argparse.ArgumentParser(prog="llz-server")
     ap.add_argument("--port", type=int, default=8080)
     ap.add_argument("--model", default=llz.DEFAULT_MODEL)
+    ap.add_argument("--revision")
     a = ap.parse_args()
     MODEL = a.model
+    REVISION = a.revision
     print(f"загружаю модель {MODEL} ...", flush=True)
-    llz.get_codec(MODEL)  # прогрев
+    llz.get_codec(MODEL, REVISION)  # прогрев
     print(f"слушаю http://127.0.0.1:{a.port}", flush=True)
     ThreadingHTTPServer(("127.0.0.1", a.port), Handler).serve_forever()
 

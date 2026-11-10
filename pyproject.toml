@@ -4,20 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llz-codec"
-version = "0.1.0"
-description = "Lossless text compression with a language model and arithmetic coding. 16.13:1 on Russian Wikipedia corpus, byte-exact, CRC32-verified."
+version = "0.2.0"
+description = "Verified lossless text compression with a language model and arithmetic coding."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 keywords = ["compression", "llm", "arithmetic-coding", "lossless"]
 dependencies = [
-    "torch>=2.5",
-    "transformers>=4.45",
-    "numpy>=1.24",
+    "torch>=2.5,<3",
+    "transformers>=4.45,<6",
+    "numpy>=1.24,<3",
 ]
 
 [project.optional-dependencies]
-brotli = ["brotli"]
+brotli = ["brotli>=1.1,<2"]
 
 [project.scripts]
 llz = "llz.cli:main"

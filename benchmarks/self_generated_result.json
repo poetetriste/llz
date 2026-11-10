@@ -1,0 +1,32 @@
+{
+  "source_bytes": 39277,
+  "source_sha256": "adc66198463e24069c01406522ef072fe41c3735d9a7af6eb9dfe7e6dc30eed2",
+  "tokens": 4767,
+  "model": "sberbank-ai/rugpt3small_based_on_gpt2",
+  "model_revision": "a9307e696cd3c5b7f953ff4cb19d76a4d81821d5",
+  "scale_bits": 28,
+  "payload_bytes": 147,
+  "payload_ratio": 267.1904761904762,
+  "llz3_container_bytes": 324,
+  "llz3_container_ratio": 121.2253086419753,
+  "entropy_estimate_bits": 920.7653650657554,
+  "entropy_estimate_ratio": 341.25523387552767,
+  "gzip_bytes": 1100,
+  "bz2_bytes": 961,
+  "xz_bytes": 992,
+  "encode_seconds": 28.291120529174805,
+  "decode_seconds": 18.938607692718506,
+  "byte_exact": true,
+  "crc32_ok": true,
+  "crc32": "b5a506c5",
+  "profile": {
+    "dtype": 1,
+    "device": 2,
+    "block": 2048,
+    "model_revision": "a9307e696cd3c5b7f953ff4cb19d76a4d81821d5",
+    "container_version": 3,
+    "payload_size": 147,
+    "software_profile": "python=3.12.16;torch=2.14.1+cu126;transformers=5.22.1;numpy=2.5.4"
+  },
+  "qualification": "Artificial model-generated sample that collapsed into a repeated sentence; not representative of ordinary text."
+}

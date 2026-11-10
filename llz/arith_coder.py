@@ -1,33 +1,41 @@
 # -*- coding: utf-8 -*-
 """
-Арифметический кодер (32-битный, классическая схема с битами подтверждения).
+Арифметический кодер с настраиваемой точностью и битами подтверждения.
 Модель снаружи: для каждой позиции отдаёт распределение вероятностей
 по алфавиту, кодер превращает его в битовый поток.
 """
 
+from .errors import ContainerFormatError
+
+
 class BitWriter:
     def __init__(self):
         self.bits = []
+
     def write(self, bit):
         self.bits.append(bit)
+
     def to_bytes(self):
         out = bytearray()
         for i in range(0, len(self.bits), 8):
-            chunk = self.bits[i:i+8]
+            chunk = self.bits[i : i + 8]
             while len(chunk) < 8:
                 chunk.append(0)
             out.append(int("".join(map(str, chunk)), 2))
         return bytes(out)
 
+
 class BitReader:
     def __init__(self, data):
         self.data = data
         self.pos = 0
+
     def read(self):
         byte = self.data[self.pos // 8] if self.pos // 8 < len(self.data) else 0
         bit = (byte >> (7 - self.pos % 8)) & 1
         self.pos += 1
         return bit
+
 
 def to_cumfreq(probs, precision=20):
     """Вероятности -> целочисленные накопленные частоты (сумма = 2^precision)."""
@@ -41,6 +49,7 @@ def to_cumfreq(probs, precision=20):
         total = cum[sym]
     total = scale
     return cum, total
+
 
 class ArithmeticEncoder:
     def __init__(self, precision=20):
@@ -88,6 +97,7 @@ class ArithmeticEncoder:
         self._emit(1 if self.lo >= self.Q1 else 0)
         return self.out.to_bytes()
 
+
 class ArithmeticDecoder:
     def __init__(self, data, precision=20):
         self.P = precision
@@ -113,7 +123,8 @@ class ArithmeticDecoder:
                 sym = s
                 break
             lo_c = cum[s]
-        assert sym is not None, "decoder desync"
+        if sym is None:
+            raise ContainerFormatError("arithmetic decoder desynchronized")
         self.hi = self.lo + rng * cum[sym] // total - 1
         self.lo = self.lo + rng * lo_c // total
         while True:
@@ -137,15 +148,19 @@ class ArithmeticDecoder:
 
 if __name__ == "__main__":
     import random
+
     random.seed(1)
     alphabet = list(range(256))
-    weights = {s: random.random() ** 3 for s in alphabet}  # скошенное распределение
+    # Deterministic non-cryptographic data for the module self-test.
+    weights = {s: random.random() ** 3 for s in alphabet}  # noqa: S311
     sw = sum(weights.values())
     probs = {s: w / sw for s, w in weights.items()}
     cum, total = to_cumfreq(probs)
 
-    message = [random.choices(alphabet, weights=[probs[s] for s in alphabet])[0]
-               for _ in range(10000)]
+    message = [
+        random.choices(alphabet, weights=[probs[s] for s in alphabet])[0]  # noqa: S311
+        for _ in range(10000)
+    ]
 
     enc = ArithmeticEncoder()
     for s in message:
@@ -155,8 +170,12 @@ if __name__ == "__main__":
     dec = ArithmeticDecoder(blob)
     decoded = [dec.decode_symbol(cum, total) for _ in range(len(message))]
 
-    assert decoded == message, "ROUND-TRIP FAILED"
+    if decoded != message:
+        raise RuntimeError("arithmetic coder round trip failed")
     import math
+
     ideal = -sum(math.log2(probs[s]) for s in message) / 8
-    print(f"round-trip OK: {len(message)} символов -> {len(blob)} байт "
-          f"(идеал по энтропии {ideal:.0f} байт, overhead {len(blob)/ideal - 1:+.2%})")
+    print(
+        f"round-trip OK: {len(message)} символов -> {len(blob)} байт "
+        f"(идеал по энтропии {ideal:.0f} байт, overhead {len(blob) / ideal - 1:+.2%})"
+    )
